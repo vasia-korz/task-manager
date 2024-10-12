@@ -1,0 +1,22 @@
+.container {
+  padding: 20px;
+}
+
+.table-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.table-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr 0.5fr;
+  padding: 10px;
+}
+
+.table-box .table-elem {
+  background-color: rgba(0, 53, 244, 0.1);
+}
+
+.table-box > :first-child {
+  border-bottom: 2px solid black;
+}

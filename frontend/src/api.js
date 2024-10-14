@@ -1,10 +1,33 @@
 import axios from 'axios';
+import moment from 'moment';
 
 const API_BASE_URL = 'http://localhost:8080'; 
 
-export const fetchTasks = async () => {
+export const fetchTasks = async (showDone=NaN, deadlineProximity=NaN) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/tasks/`);
+    let request = `${API_BASE_URL}/tasks/`;
+
+    let deadlineProximityRequest;
+    let showDoneRequest;
+
+    if (!isNaN(showDone)) {
+      showDoneRequest = `showDone=${showDone}`
+    }
+    if (!isNaN(deadlineProximity)) {
+      const date = moment(deadlineProximity);
+      const formattedDate = date.utc().format("YYYY-MM-DDTHH:mm:ss[Z]")
+      deadlineProximityRequest = `?deadlineProximity=${formattedDate}`
+    }
+
+    if (!isNaN(showDone) && isNaN(deadlineProximity)) {
+      request = request + '?' + showDoneRequest
+    } else if (isNaN(showDone) && !isNaN(deadlineProximity)) {
+      request = request + '?' + deadlineProximityRequest
+    } else if (!isNaN(showDone) && !isNaN(deadlineProximity)) {
+      request = request + '?' + showDoneRequest + '&' + deadlineProximityRequest
+    }
+
+    const response = await axios.get(request);
     return response.data;
   } catch (error) {
     console.error('Error fetching tasks:', error);

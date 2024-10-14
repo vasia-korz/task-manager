@@ -4,7 +4,6 @@ import EditTaskModal from './EditTaskModal.js';
 import './App.scss';
 import editImg from './assets/edit.svg';
 import trashImg from './assets/trash.svg';
-import { convertToLocalDateTimeString } from './EditTaskModal.js'
 
 const CountdownTimer = ({ targetDate }) => {
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());

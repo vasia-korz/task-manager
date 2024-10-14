@@ -30,7 +30,7 @@ func main() {
 }
 
 func readTasks(c *gin.Context) {
-	tasks, err := models.GetTasks()
+	tasks, err := models.GetTasks(c)
 	checkErr(c, err, http.StatusNotFound)
 
 	if err != nil {

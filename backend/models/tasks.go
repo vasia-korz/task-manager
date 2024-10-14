@@ -23,16 +23,54 @@ func ConnectDatabase() error {
 }
 
 type Task struct {
-	Id         int       `json:"id"`
-	Title      string    `json:"title"`
-	Comment    string    `json:"comment"`
-	Deadline   time.Time `json:"deadline"`
-	Priority   string    `json:"priority"`
-	Created_at time.Time `json:"createdAt"`
+	Id           int        `json:"id"`
+	Title        string     `json:"title"`
+	Comment      string     `json:"comment"`
+	Deadline     time.Time  `json:"deadline"`
+	Done         bool       `json:"done"`
+	Planned      bool       `json:"planned"`
+	Created_at   time.Time  `json:"createdAt"`
+	Completed_at *time.Time `json:"completedAt"`
 }
 
-func GetTasks() ([]Task, error) {
-	rows, err := DB.Query("SELECT * FROM tasks")
+type TaskUpdate struct {
+	Title    *string    `json:"title"`
+	Comment  *string    `json:"comment"`
+	Deadline *time.Time `json:"deadline"`
+	Done     *bool      `json:"done"`
+	Planned  *bool      `json:"planned"`
+}
+
+func GetTasks(c *gin.Context) ([]Task, error) {
+	showDoneStr := c.Query("showDone")
+	deadlineProximityStr := c.Query("deadlineProximity")
+
+	showDone := true
+	if showDoneStr == "false" {
+		showDone = false
+	}
+
+	var deadlineProximity *time.Time
+	if deadlineProximityStr != "" {
+		parsedDeadline, err := time.Parse("2006-01-02T15:04:05Z07:00", deadlineProximityStr)
+		if err != nil {
+			return nil, err
+		}
+		deadlineProximity = &parsedDeadline
+	}
+
+	var rows *sql.Rows
+	var err error
+
+	if showDone && deadlineProximity == nil {
+		rows, err = DB.Query("SELECT * FROM tasks ORDER BY deadline")
+	} else if !showDone && deadlineProximity == nil {
+		rows, err = DB.Query("SELECT * FROM tasks WHERE done IS FALSE ORDER BY deadline")
+	} else if showDone {
+		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? ORDER BY deadline", deadlineProximity)
+	} else {
+		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? AND done IS FALSE ORDER BY deadline", deadlineProximity)
+	}
 
 	if err != nil {
 		return nil, err
@@ -44,7 +82,7 @@ func GetTasks() ([]Task, error) {
 
 	for rows.Next() {
 		singleTask := Task{}
-		err = rows.Scan(&singleTask.Id, &singleTask.Title, &singleTask.Comment, &singleTask.Deadline, &singleTask.Priority, &singleTask.Created_at)
+		err = rows.Scan(&singleTask.Id, &singleTask.Title, &singleTask.Comment, &singleTask.Deadline, &singleTask.Done, &singleTask.Planned, &singleTask.Created_at, &singleTask.Completed_at)
 
 		if err != nil {
 			return nil, err
@@ -69,10 +107,10 @@ func PostTask(c *gin.Context) (*Task, error) {
 		return nil, err
 	}
 
-	newTask.Created_at = time.Now()
+	newTask.Created_at = time.Now().UTC()
 
-	result, err := DB.Exec("INSERT INTO tasks (title, comment, deadline, priority, created_at) VALUES (?, ?, ?, ?, ?)",
-		newTask.Title, newTask.Comment, newTask.Deadline, newTask.Priority, newTask.Created_at)
+	result, err := DB.Exec("INSERT INTO tasks (title, comment, deadline, done, planned, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		newTask.Title, newTask.Comment, newTask.Deadline, newTask.Done, newTask.Planned, newTask.Created_at, newTask.Completed_at)
 
 	if err != nil {
 		return nil, err
@@ -90,54 +128,67 @@ func PostTask(c *gin.Context) (*Task, error) {
 }
 
 func UpdateTask(c *gin.Context) (*Task, error) {
-	var incomingTask Task
+	var incomingTask TaskUpdate
 
-	id := c.Param("id")
+	id, err := strconv.Atoi(c.Param("id"))
+
+	if err != nil {
+		return nil, fmt.Errorf("invalid task ID")
+	}
 
 	if err := c.ShouldBindJSON(&incomingTask); err != nil {
 		return nil, err
 	}
 
-	if id == "" {
-		return nil, fmt.Errorf("Task ID is required")
-	}
-
-	incomingTask.Id, _ = strconv.Atoi(id)
-
 	var exists bool
-	err := DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?)", incomingTask.Id).Scan(&exists)
+	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?)", id).Scan(&exists)
 
 	if err != nil {
 		return nil, err
 	}
 
 	if !exists {
-		return nil, fmt.Errorf("Task not found")
+		return nil, fmt.Errorf("task not found")
 	}
 
 	var existingTask Task
-	err = DB.QueryRow("SELECT id, title, comment, deadline, priority, created_at FROM tasks WHERE id = ?", incomingTask.Id).Scan(
-		&existingTask.Id, &existingTask.Title, &existingTask.Comment, &existingTask.Deadline, &existingTask.Priority, &existingTask.Created_at)
+	err = DB.QueryRow("SELECT id, title, comment, deadline, done, planned, created_at, completed_at FROM tasks WHERE id = ?", id).Scan(
+		&existingTask.Id, &existingTask.Title, &existingTask.Comment, &existingTask.Deadline, &existingTask.Done, &existingTask.Planned, &existingTask.Created_at, &existingTask.Completed_at)
 
-	if incomingTask.Title != "" {
-		existingTask.Title = incomingTask.Title
+	if incomingTask.Title != nil {
+		existingTask.Title = *incomingTask.Title
 	}
-	if incomingTask.Comment != "" {
-		existingTask.Comment = incomingTask.Comment
+	if incomingTask.Comment != nil {
+		existingTask.Comment = *incomingTask.Comment
 	}
-	if !incomingTask.Deadline.IsZero() {
-		existingTask.Deadline = incomingTask.Deadline
+	if incomingTask.Deadline != nil {
+		existingTask.Deadline = *incomingTask.Deadline
 	}
-	if incomingTask.Priority != "" {
-		existingTask.Priority = incomingTask.Priority
+
+	/*
+	* If that task is set to done, then planned is set to false.
+	* If the task is set to false, then planned is changed independently.
+	 */
+	if incomingTask.Done != nil && *incomingTask.Done && !existingTask.Done {
+		existingTask.Done = true
+		existingTask.Completed_at = new(time.Time) // allocate memory
+		*existingTask.Completed_at = time.Now().UTC()
+		existingTask.Planned = false
+	} else {
+		if incomingTask.Done != nil && *incomingTask.Done != existingTask.Done {
+			existingTask.Done = *incomingTask.Done
+		}
+		if incomingTask.Planned != nil && *incomingTask.Planned != existingTask.Planned {
+			existingTask.Planned = *incomingTask.Planned
+		}
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = DB.Exec("UPDATE tasks SET title = ?, comment = ?, deadline = ?, priority = ? WHERE id = ?",
-		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Priority, existingTask.Id)
+	_, err = DB.Exec("UPDATE tasks SET title = ?, comment = ?, deadline = ?, done = ?, planned = ?, completed_at = ? WHERE id = ?",
+		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id)
 
 	if err != nil {
 		return nil, err
@@ -150,7 +201,7 @@ func DeleteTask(c *gin.Context) error {
 	id_str := c.Param("id")
 
 	if id_str == "" {
-		return fmt.Errorf("Task ID is required")
+		return fmt.Errorf("task ID is required")
 	}
 
 	id, _ := strconv.Atoi(id_str)
@@ -163,7 +214,7 @@ func DeleteTask(c *gin.Context) error {
 	}
 
 	if !exists {
-		return fmt.Errorf("Task not found")
+		return fmt.Errorf("task not found")
 	}
 
 	_, err = DB.Exec("DELETE FROM tasks WHERE id = ?", id)

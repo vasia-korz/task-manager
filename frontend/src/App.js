@@ -88,7 +88,6 @@ function App() {
   const openCreateModal = () => {
     closeSelectedTask();
     setIsCreateModalOpen(true);
-    closeSelectedTask();
   };
 
   const closeCreateModal = () => {
@@ -124,6 +123,7 @@ function App() {
   };
 
   const handleDeleteTask = async (id) => {
+    closeSelectedTask();
     try {
       await deleteTask(id);
       await loadTasks(isShowDoneChecked);

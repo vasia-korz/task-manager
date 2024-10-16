@@ -58,7 +58,7 @@ form {
         margin-bottom: 5px;
       }
 
-      input {
+      input, textarea {
         padding: 10px;
         font-family: 'DM Sans', sans-serif;
         outline: none;
@@ -66,6 +66,12 @@ form {
         color: white;
         border: 1px solid white;
       }
+
+      textarea {
+        height: 80px;
+        resize: none;
+      }
+
 
       input[type="datetime-local"] {
         position: relative;

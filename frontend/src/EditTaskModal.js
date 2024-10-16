@@ -52,20 +52,20 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
             <form onSubmit={handleFormSubmit}>
             <div className="input-list">
                 <div className="input-box">
-                <div>Title:</div>
-                <input type="text" name="title" defaultValue={selectedTask.title} required />
+                  <div>Title:</div>
+                  <input type="text" name="title" defaultValue={selectedTask.title} required />
                 </div>
                 <div className="input-box">
-                <div>Comment:</div>
-                <input type="text" name="comment" defaultValue={selectedTask.comment} />
+                  <div>Comment:</div>
+                  <textarea type="text" name="comment" defaultValue={selectedTask.comment} />
                 </div>
                 <div className="input-box">
-                <div>Deadline:</div>
-                <input
-                    type="datetime-local"
-                    name="deadline"
-                    defaultValue={selectedTask.deadline ? convertToLocalDateTimeString(selectedTask.deadline) : ''}
-                />
+                  <div>Deadline:</div>
+                  <input
+                      type="datetime-local"
+                      name="deadline"
+                      defaultValue={selectedTask.deadline ? convertToLocalDateTimeString(selectedTask.deadline) : ''}
+                  />
                 </div>
                 <div className="input-box check">
                 <div>Done:</div>

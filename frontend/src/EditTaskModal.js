@@ -13,7 +13,7 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
       id: selectedTask.id,
       title: event.target.elements.title.value,
       done: event.target.elements.done.checked,
-    //   planned: event.target.elements.planned.checked,
+      planned: event.target.elements.planned.checked,
       comment: event.target.elements.comment.value,
       deadline: new Date(event.target.elements.deadline.value).toISOString()
     };
@@ -68,13 +68,13 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
                   />
                 </div>
                 <div className="input-box check">
-                <div>Done:</div>
-                <input type="checkbox" name="done" defaultChecked={selectedTask.done} />
+                  <div>Done:</div>
+                  <input type="checkbox" name="done" defaultChecked={selectedTask.done} />
                 </div>
-                {/* <div className="input-box">
-                <div>Planned:</div>
-                <input type="checkbox" name="planned" defaultChecked={selectedTask.planned} />
-                </div> */}
+                <div className="input-box check">
+                  <div>STARed:</div>
+                  <input type="checkbox" name="planned" defaultChecked={selectedTask.planned} />
+                </div>
             </div>
             <button type="submit">Save</button>
             <img onClick={onRequestClose} className="close-btn" src={closeImg} />

@@ -4,6 +4,8 @@ import EditTaskModal from './EditTaskModal.js';
 import './App.scss';
 import editImg from './assets/edit.svg';
 import trashImg from './assets/trash.svg';
+import starImg from './assets/star.svg';
+import Markdown from 'marked-react';
 
 const CountdownTimer = ({ targetDate }) => {
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
@@ -37,7 +39,6 @@ const CountdownTimer = ({ targetDate }) => {
           {timeLeft.days > 0 ? <span>{timeLeft.days}d </span> : <></>}
           {timeLeft.hours > 0 ? <span>{timeLeft.hours}h </span> : <></>}
           {timeLeft.minutes > 0 ? <span>{timeLeft.minutes}m </span> : <></>}
-          {timeLeft.seconds > 0 ? <span>{timeLeft.seconds}s </span> : <></>}
         </div>
       ) : (
         <div>Time's up</div>
@@ -165,7 +166,11 @@ function App() {
           </div>
           {tasks.map((task) => (
             <div key={task.id} className="table-elem table-grid" onClick={() => openSelectedTask(task)}>
-              <div>{task.title}</div>
+              <div class="title-col">
+                {task.planned ? (
+                <img className="star" src={starImg} />
+                ) : (<></>)}
+                <span>{task.title}</span></div>
               <CountdownTimer targetDate={new Date(task.deadline)} />
               <div className={`status-box ${!task.done ? 'todo' : 'done'}`}>
                 {!task.done ? 'To do' : 'Done'}
@@ -188,8 +193,8 @@ function App() {
               {!selectedTask.done ? 'To do' : 'Done'}
             </div>
           </div>
-          <div className="comment"><span className="lower">Comment:</span><br />{selectedTask.comment != "" ? selectedTask.comment : "No comment provided..."}</div>
-          <div className="deadline"><span className="lower">Deadline:</span><br />
+          <div className="comment" markdown="1"><div className="lower">Comment:</div><Markdown>{selectedTask.comment != "" ? selectedTask.comment : "No comment provided..."}</Markdown></div>
+          <div className="deadline"><div className="lower second">Deadline:</div>
           {new Date(selectedTask.deadline).getDate()}-
           {new Date(selectedTask.deadline).getMonth() + 1}-
           {new Date(selectedTask.deadline).getFullYear()} at {}

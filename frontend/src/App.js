@@ -172,8 +172,8 @@ function App() {
                 ) : (<></>)}
                 <span>{task.title}</span></div>
               <CountdownTimer targetDate={new Date(task.deadline)} />
-              <div className={`status-box ${!task.done ? 'todo' : 'done'}`}>
-                {!task.done ? 'To do' : 'Done'}
+              <div className={`status-box ${task.done}`}>
+                {task.done === 'done' ? 'Done' : task.done === "todo" ? 'To do' : 'In progress'}
               </div>
               <div onClick={(event) => {event.stopPropagation(); openUpdateModal(task)}} className="edit-box"><div className="edit"><img src={editImg} /></div></div>
               <div onClick={(event) => {event.stopPropagation(); handleDeleteTask(task.id)}} className="edit-box"><div className="edit"><img src={trashImg} /></div></div>
@@ -189,11 +189,11 @@ function App() {
         <div className="content-box">
           <div className="header">
             <div className="title">{selectedTask.title}</div>
-            <div className={`status-box ${!selectedTask.done ? 'todo' : 'done'}`}>
-              {!selectedTask.done ? 'To do' : 'Done'}
+            <div className={`status-box ${selectedTask.done}`}>
+              {selectedTask.done === 'done' ? 'Done' : selectedTask.done === "todo" ? 'To do' : 'In progress'}
             </div>
           </div>
-          <div className="comment" markdown="1"><div className="lower">Comment:</div><Markdown>{selectedTask.comment != "" ? selectedTask.comment : "No comment provided..."}</Markdown></div>
+          <div className="comment" markdown="1"><div className="lower">Comment:</div><Markdown>{selectedTask.comment !== "" ? selectedTask.comment : "No comment provided..."}</Markdown></div>
           <div className="deadline"><div className="lower second">Deadline:</div>
           {new Date(selectedTask.deadline).getDate()}-
           {new Date(selectedTask.deadline).getMonth() + 1}-

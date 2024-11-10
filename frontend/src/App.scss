@@ -131,14 +131,19 @@
   border-radius: 5px;
   width: fit-content;
   padding: 3px;
-  min-width: 50px;
-  width: 50px;
+  min-width: 70px;
+  width: 70px;
   font-size: 12px;
   margin: auto;
 
   &.done {
     background-color: rgba(0, 255, 4, 0.2);
     border: 1px solid #34bd0e;
+  }
+
+  &.progress {
+    background-color: rgba(34, 0, 255, 0.2);
+    border: 1px solid #220ebd;
   }
 }
 

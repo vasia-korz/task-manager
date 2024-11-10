@@ -12,7 +12,7 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
     const updatedTask = {
       id: selectedTask.id,
       title: event.target.elements.title.value,
-      done: event.target.elements.done.checked,
+      done: event.target.elements.done.value,
       planned: event.target.elements.planned.checked,
       comment: event.target.elements.comment.value,
       deadline: new Date(event.target.elements.deadline.value).toISOString()
@@ -69,7 +69,11 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
                 </div>
                 <div className="input-box check">
                   <div>Done:</div>
-                  <input type="checkbox" name="done" defaultChecked={selectedTask.done} />
+                  <select name="done" defaultValue={selectedTask.done}>
+                    <option value="todo">To do</option>
+                    <option value="progress">In progress</option>
+                    <option value="done">Done</option>
+                  </select>
                 </div>
                 <div className="input-box check">
                   <div>STARed:</div>

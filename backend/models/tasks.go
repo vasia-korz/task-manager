@@ -27,7 +27,7 @@ type Task struct {
 	Title        string     `json:"title"`
 	Comment      string     `json:"comment"`
 	Deadline     time.Time  `json:"deadline"`
-	Done         bool       `json:"done"`
+	Done         string     `json:"done"`
 	Planned      bool       `json:"planned"`
 	Created_at   time.Time  `json:"createdAt"`
 	Completed_at *time.Time `json:"completedAt"`
@@ -37,7 +37,7 @@ type TaskUpdate struct {
 	Title    *string    `json:"title"`
 	Comment  *string    `json:"comment"`
 	Deadline *time.Time `json:"deadline"`
-	Done     *bool      `json:"done"`
+	Done     *string    `json:"done"`
 	Planned  *bool      `json:"planned"`
 }
 
@@ -65,11 +65,11 @@ func GetTasks(c *gin.Context) ([]Task, error) {
 	if showDone && deadlineProximity == nil {
 		rows, err = DB.Query("SELECT * FROM tasks ORDER BY deadline")
 	} else if !showDone && deadlineProximity == nil {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE done IS FALSE ORDER BY deadline")
+		rows, err = DB.Query("SELECT * FROM tasks WHERE done IN ('progress', 'todo') ORDER BY deadline")
 	} else if showDone {
 		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? ORDER BY deadline", deadlineProximity)
 	} else {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? AND done IS FALSE ORDER BY deadline", deadlineProximity)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? AND done IN ('progress', 'todo') ORDER BY deadline", deadlineProximity)
 	}
 
 	if err != nil {
@@ -167,10 +167,10 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 
 	/*
 	* If that task is set to done, then planned is set to false.
-	* If the task is set to false, then planned is changed independently.
+	* If the task is set to progress / todo, then planned is changed independently.
 	 */
-	if incomingTask.Done != nil && *incomingTask.Done && !existingTask.Done {
-		existingTask.Done = true
+	if incomingTask.Done != nil && *incomingTask.Done == "done" && existingTask.Done != "done" {
+		existingTask.Done = "done"
 		existingTask.Completed_at = new(time.Time) // allocate memory
 		*existingTask.Completed_at = time.Now().UTC()
 		existingTask.Planned = false

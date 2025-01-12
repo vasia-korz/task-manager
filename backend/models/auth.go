@@ -27,7 +27,7 @@ func Register(db *sql.DB, c *gin.Context) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", creds.Username, hashedPassword)
+	_, err = db.Exec("INSERT INTO users (username, password) VALUES ($1, $2)", creds.Username, hashedPassword)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "This username already exists"})
 		return
@@ -46,7 +46,7 @@ func Login(db *sql.DB, c *gin.Context) {
 	// Check if the user exists
 	var storedPassword string
 	var userID int
-	err := db.QueryRow("SELECT id, password FROM users WHERE username = ?", creds.Username).Scan(&userID, &storedPassword)
+	err := db.QueryRow("SELECT id, password FROM users WHERE username = $1", creds.Username).Scan(&userID, &storedPassword)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return

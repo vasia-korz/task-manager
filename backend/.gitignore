@@ -4,7 +4,7 @@
 # Ignore Go build outputs
 *.exe
 *.out
-task-manager
+app
 
 # Ignore build and temp files
 *.log

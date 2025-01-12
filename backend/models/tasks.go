@@ -3,44 +3,60 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
 func ConnectDatabase() error {
-	db, err := sql.Open("sqlite3", "./data/sqlite.db")
+	connStr := os.Getenv("DATABASE_URL")
+
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
+		return err
+	}
+
+	if err := db.Ping(); err != nil {
 		return err
 	}
 
 	DB = db
 
+	err = createTables()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createTables() error {
 	createUsersTable := `
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             password TEXT NOT NULL
         );`
 
 	createTasksTable := `
         CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             comment TEXT,
-            deadline DATETIME,
+            deadline TIMESTAMP,
             done TEXT,
-            planned BOOLEAN,
-            created_at DATETIME,
-            completed_at DATETIME,
-            user_id INTEGER REFERENCES users(id)
+            planned BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            completed_at TIMESTAMP,
+            user_id INT REFERENCES users(id) ON DELETE CASCADE
         );`
 
-	_, err = DB.Exec(createUsersTable)
+	_, err := DB.Exec(createUsersTable)
 	if err != nil {
 		return err
 	}
@@ -97,13 +113,13 @@ func GetTasks(c *gin.Context) ([]Task, error) {
 	var err error
 
 	if showDone && deadlineProximity == nil {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? ORDER BY deadline", userID)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = $1 ORDER BY deadline", userID)
 	} else if !showDone && deadlineProximity == nil {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? AND done IN ('progress', 'todo') ORDER BY deadline", userID)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = $1 AND done IN ('progress', 'todo') ORDER BY deadline", userID)
 	} else if showDone {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? AND deadline <= ? ORDER BY deadline", userID, deadlineProximity)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = $1 AND deadline <= $2 ORDER BY deadline", userID, deadlineProximity)
 	} else {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? AND deadline <= ? AND done IN ('progress', 'todo') ORDER BY deadline", userID, deadlineProximity)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = $1 AND deadline <= $2 AND done IN ('progress', 'todo') ORDER BY deadline", userID, deadlineProximity)
 	}
 
 	if err != nil {
@@ -155,14 +171,11 @@ func PostTask(c *gin.Context) (*Task, error) {
 
 	newTask.Created_at = time.Now().UTC()
 
-	result, err := DB.Exec("INSERT INTO tasks (title, comment, deadline, done, planned, created_at, completed_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		newTask.Title, newTask.Comment, newTask.Deadline, newTask.Done, newTask.Planned, newTask.Created_at, newTask.Completed_at, userID)
-
-	if err != nil {
-		return nil, err
-	}
-
-	lastInsertId, err := result.LastInsertId()
+	var lastInsertId int
+	err := DB.QueryRow(
+		"INSERT INTO tasks (title, comment, deadline, done, planned, created_at, completed_at, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
+		newTask.Title, newTask.Comment, newTask.Deadline, newTask.Done, newTask.Planned, newTask.Created_at, newTask.Completed_at, userID,
+	).Scan(&lastInsertId)
 
 	if err != nil {
 		return nil, err
@@ -190,7 +203,7 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 	}
 
 	var exists bool
-	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND user_id = ?)", id, userID).Scan(&exists)
+	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = $1 AND user_id = $2)", id, userID).Scan(&exists)
 
 	if err != nil {
 		return nil, err
@@ -201,8 +214,10 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 	}
 
 	var existingTask Task
-	err = DB.QueryRow("SELECT id, title, comment, deadline, done, planned, created_at, completed_at, user_id FROM tasks WHERE id = ? AND user_id = ?", id, userID).Scan(
-		&existingTask.Id, &existingTask.Title, &existingTask.Comment, &existingTask.Deadline, &existingTask.Done, &existingTask.Planned, &existingTask.Created_at, &existingTask.Completed_at, &existingTask.UserID)
+	_, err = DB.Exec(
+		"UPDATE tasks SET title = $1, comment = $2, deadline = $3, done = $4, planned = $5, completed_at = $6 WHERE id = $7 AND user_id = $8",
+		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id, userID,
+	)
 
 	if incomingTask.Title != nil {
 		existingTask.Title = *incomingTask.Title
@@ -236,7 +251,7 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 		}
 	}
 
-	_, err = DB.Exec("UPDATE tasks SET title = ?, comment = ?, deadline = ?, done = ?, planned = ?, completed_at = ? WHERE id = ? AND user_id = ?",
+	_, err = DB.Exec("UPDATE tasks SET title = $1, comment = $2, deadline = $3, done = $4, planned = $5, completed_at = $6 WHERE id = $7 AND user_id = $8",
 		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id, userID)
 
 	if err != nil {
@@ -258,7 +273,7 @@ func DeleteTask(c *gin.Context) error {
 	id, _ := strconv.Atoi(id_str)
 
 	var exists bool
-	err := DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND user_id = ?)", id, userID).Scan(&exists)
+	err := DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = $1 AND user_id = $2)", id, userID).Scan(&exists)
 
 	if err != nil {
 		return err
@@ -268,7 +283,7 @@ func DeleteTask(c *gin.Context) error {
 		return fmt.Errorf("task not found")
 	}
 
-	_, err = DB.Exec("DELETE FROM tasks WHERE id = ? AND user_id = ?", id, userID)
+	_, err = DB.Exec("DELETE FROM tasks WHERE id = $1 AND user_id = $2", id, userID)
 
 	if err != nil {
 		return err

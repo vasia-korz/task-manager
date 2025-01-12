@@ -214,9 +214,17 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 	}
 
 	var existingTask Task
-	_, err = DB.Exec(
-		"UPDATE tasks SET title = $1, comment = $2, deadline = $3, done = $4, planned = $5, completed_at = $6 WHERE id = $7 AND user_id = $8",
-		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id, userID,
+	err = DB.QueryRow("SELECT id, title, comment, deadline, done, planned, created_at, completed_at, user_id FROM tasks WHERE id = $1 AND user_id = $2",
+		id, userID).Scan(
+		&existingTask.Id,
+		&existingTask.Title,
+		&existingTask.Comment,
+		&existingTask.Deadline,
+		&existingTask.Done,
+		&existingTask.Planned,
+		&existingTask.Created_at,
+		&existingTask.Completed_at,
+		&existingTask.UserID,
 	)
 
 	if incomingTask.Title != nil {
@@ -251,8 +259,17 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 		}
 	}
 
-	_, err = DB.Exec("UPDATE tasks SET title = $1, comment = $2, deadline = $3, done = $4, planned = $5, completed_at = $6 WHERE id = $7 AND user_id = $8",
-		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id, userID)
+	_, err = DB.Exec(
+		"UPDATE tasks SET title = $1, comment = $2, deadline = $3, done = $4, planned = $5, completed_at = $6 WHERE id = $7 AND user_id = $8",
+		existingTask.Title,
+		existingTask.Comment,
+		existingTask.Deadline,
+		existingTask.Done,
+		existingTask.Planned,
+		existingTask.Completed_at,
+		existingTask.Id,
+		userID,
+	)
 
 	if err != nil {
 		return nil, err

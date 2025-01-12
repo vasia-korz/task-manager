@@ -13,12 +13,43 @@ import (
 var DB *sql.DB
 
 func ConnectDatabase() error {
-	db, err := sql.Open("sqlite3", "./sqlite.db")
+	db, err := sql.Open("sqlite3", "./data/sqlite.db")
 	if err != nil {
 		return err
 	}
 
 	DB = db
+
+	createUsersTable := `
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        );`
+
+	createTasksTable := `
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            comment TEXT,
+            deadline DATETIME,
+            done TEXT,
+            planned BOOLEAN,
+            created_at DATETIME,
+            completed_at DATETIME,
+            user_id INTEGER REFERENCES users(id)
+        );`
+
+	_, err = DB.Exec(createUsersTable)
+	if err != nil {
+		return err
+	}
+
+	_, err = DB.Exec(createTasksTable)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -31,6 +62,7 @@ type Task struct {
 	Planned      bool       `json:"planned"`
 	Created_at   time.Time  `json:"createdAt"`
 	Completed_at *time.Time `json:"completedAt"`
+	UserID       int        `json:"userId"`
 }
 
 type TaskUpdate struct {
@@ -42,6 +74,8 @@ type TaskUpdate struct {
 }
 
 func GetTasks(c *gin.Context) ([]Task, error) {
+	userID := c.GetInt("userID")
+
 	showDoneStr := c.Query("showDone")
 	deadlineProximityStr := c.Query("deadlineProximity")
 
@@ -63,13 +97,13 @@ func GetTasks(c *gin.Context) ([]Task, error) {
 	var err error
 
 	if showDone && deadlineProximity == nil {
-		rows, err = DB.Query("SELECT * FROM tasks ORDER BY deadline")
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? ORDER BY deadline", userID)
 	} else if !showDone && deadlineProximity == nil {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE done IN ('progress', 'todo') ORDER BY deadline")
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? AND done IN ('progress', 'todo') ORDER BY deadline", userID)
 	} else if showDone {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? ORDER BY deadline", deadlineProximity)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? AND deadline <= ? ORDER BY deadline", userID, deadlineProximity)
 	} else {
-		rows, err = DB.Query("SELECT * FROM tasks WHERE deadline <= ? AND done IN ('progress', 'todo') ORDER BY deadline", deadlineProximity)
+		rows, err = DB.Query("SELECT * FROM tasks WHERE user_id = ? AND deadline <= ? AND done IN ('progress', 'todo') ORDER BY deadline", userID, deadlineProximity)
 	}
 
 	if err != nil {
@@ -82,7 +116,17 @@ func GetTasks(c *gin.Context) ([]Task, error) {
 
 	for rows.Next() {
 		singleTask := Task{}
-		err = rows.Scan(&singleTask.Id, &singleTask.Title, &singleTask.Comment, &singleTask.Deadline, &singleTask.Done, &singleTask.Planned, &singleTask.Created_at, &singleTask.Completed_at)
+		err = rows.Scan(
+			&singleTask.Id,
+			&singleTask.Title,
+			&singleTask.Comment,
+			&singleTask.Deadline,
+			&singleTask.Done,
+			&singleTask.Planned,
+			&singleTask.Created_at,
+			&singleTask.Completed_at,
+			&singleTask.UserID,
+		)
 
 		if err != nil {
 			return nil, err
@@ -101,6 +145,8 @@ func GetTasks(c *gin.Context) ([]Task, error) {
 }
 
 func PostTask(c *gin.Context) (*Task, error) {
+	userID := c.GetInt("userID")
+
 	var newTask Task
 
 	if err := c.ShouldBindJSON(&newTask); err != nil {
@@ -109,8 +155,8 @@ func PostTask(c *gin.Context) (*Task, error) {
 
 	newTask.Created_at = time.Now().UTC()
 
-	result, err := DB.Exec("INSERT INTO tasks (title, comment, deadline, done, planned, created_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		newTask.Title, newTask.Comment, newTask.Deadline, newTask.Done, newTask.Planned, newTask.Created_at, newTask.Completed_at)
+	result, err := DB.Exec("INSERT INTO tasks (title, comment, deadline, done, planned, created_at, completed_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		newTask.Title, newTask.Comment, newTask.Deadline, newTask.Done, newTask.Planned, newTask.Created_at, newTask.Completed_at, userID)
 
 	if err != nil {
 		return nil, err
@@ -123,11 +169,14 @@ func PostTask(c *gin.Context) (*Task, error) {
 	}
 
 	newTask.Id = int(lastInsertId)
+	newTask.UserID = userID
 
 	return &newTask, nil
 }
 
 func UpdateTask(c *gin.Context) (*Task, error) {
+	userID := c.GetInt("userID")
+
 	var incomingTask TaskUpdate
 
 	id, err := strconv.Atoi(c.Param("id"))
@@ -141,7 +190,7 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 	}
 
 	var exists bool
-	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?)", id).Scan(&exists)
+	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND user_id = ?)", id, userID).Scan(&exists)
 
 	if err != nil {
 		return nil, err
@@ -152,8 +201,8 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 	}
 
 	var existingTask Task
-	err = DB.QueryRow("SELECT id, title, comment, deadline, done, planned, created_at, completed_at FROM tasks WHERE id = ?", id).Scan(
-		&existingTask.Id, &existingTask.Title, &existingTask.Comment, &existingTask.Deadline, &existingTask.Done, &existingTask.Planned, &existingTask.Created_at, &existingTask.Completed_at)
+	err = DB.QueryRow("SELECT id, title, comment, deadline, done, planned, created_at, completed_at, user_id FROM tasks WHERE id = ? AND user_id = ?", id, userID).Scan(
+		&existingTask.Id, &existingTask.Title, &existingTask.Comment, &existingTask.Deadline, &existingTask.Done, &existingTask.Planned, &existingTask.Created_at, &existingTask.Completed_at, &existingTask.UserID)
 
 	if incomingTask.Title != nil {
 		existingTask.Title = *incomingTask.Title
@@ -163,6 +212,10 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 	}
 	if incomingTask.Deadline != nil {
 		existingTask.Deadline = *incomingTask.Deadline
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	/*
@@ -183,12 +236,8 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = DB.Exec("UPDATE tasks SET title = ?, comment = ?, deadline = ?, done = ?, planned = ?, completed_at = ? WHERE id = ?",
-		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id)
+	_, err = DB.Exec("UPDATE tasks SET title = ?, comment = ?, deadline = ?, done = ?, planned = ?, completed_at = ? WHERE id = ? AND user_id = ?",
+		existingTask.Title, existingTask.Comment, existingTask.Deadline, existingTask.Done, existingTask.Planned, existingTask.Completed_at, existingTask.Id, userID)
 
 	if err != nil {
 		return nil, err
@@ -198,6 +247,8 @@ func UpdateTask(c *gin.Context) (*Task, error) {
 }
 
 func DeleteTask(c *gin.Context) error {
+	userID := c.GetInt("userID")
+
 	id_str := c.Param("id")
 
 	if id_str == "" {
@@ -207,7 +258,7 @@ func DeleteTask(c *gin.Context) error {
 	id, _ := strconv.Atoi(id_str)
 
 	var exists bool
-	err := DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?)", id).Scan(&exists)
+	err := DB.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ? AND user_id = ?)", id, userID).Scan(&exists)
 
 	if err != nil {
 		return err
@@ -217,7 +268,7 @@ func DeleteTask(c *gin.Context) error {
 		return fmt.Errorf("task not found")
 	}
 
-	_, err = DB.Exec("DELETE FROM tasks WHERE id = ?", id)
+	_, err = DB.Exec("DELETE FROM tasks WHERE id = ? AND user_id = ?", id, userID)
 
 	if err != nil {
 		return err

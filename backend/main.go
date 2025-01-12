@@ -3,8 +3,11 @@ package main
 import (
 	"net/http"
 
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/vasia-korz/task-manager/middleware"
 	"github.com/vasia-korz/task-manager/models"
 )
 
@@ -12,13 +15,27 @@ func main() {
 	err := models.ConnectDatabase()
 
 	if err != nil {
-		return
+		panic("Failed to connect to the database: " + err.Error())
 	}
 
 	r := gin.Default()
-	r.Use(cors.Default())
 
-	router := r.Group("/tasks")
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},                   // Allow frontend origin
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // HTTP methods
+		AllowHeaders:     []string{"Authorization", "Content-Type"},           // Allowed headers
+		ExposeHeaders:    []string{"Authorization"},                           // Expose any custom headers
+		AllowCredentials: true,                                                // Allow cookies if needed
+		MaxAge:           12 * time.Hour,                                      // Cache preflight response
+	}))
+
+	authRouter := r.Group("/auth")
+	{
+		authRouter.POST("/register", func(c *gin.Context) { models.Register(models.DB, c) })
+		authRouter.POST("/login", func(c *gin.Context) { models.Login(models.DB, c) })
+	}
+
+	router := r.Group("/tasks", middleware.AuthMiddleware())
 	{
 		router.POST("/create", postTask)
 		router.GET("/", readTasks)

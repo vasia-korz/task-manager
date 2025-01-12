@@ -2,12 +2,11 @@ import React from 'react';
 import Modal from 'react-modal';
 import './EditTaskModal.scss';
 import { useEffect } from 'react';
-import { emptyTask } from './models/taskModel.js';
-import closeImg from "./assets/close.svg";
+import { emptyTask } from '../models/taskModel.js';
+import closeImg from "../assets/close.svg";
 
 function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSubmit, isUpdateModal }) {
   const handleFormSubmit = (event) => {
-    console.log(event);
     event.preventDefault();
     const updatedTask = {
       id: selectedTask.id,
@@ -17,8 +16,6 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
       comment: event.target.elements.comment.value,
       deadline: new Date(event.target.elements.deadline.value).toISOString()
     };
-
-    console.log("updatedTask", updatedTask);
 
     onSubmit(updatedTask);
     onRequestClose();

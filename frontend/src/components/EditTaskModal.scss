@@ -9,7 +9,7 @@
   width: 50%;
   margin: auto;
   height: min-content;
-  background-image: url('./assets/bg.jpg') !important;
+  background-image: url('../assets/bg.jpg') !important;
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center center;
@@ -83,7 +83,7 @@ form {
           right: 10px;
           width: 20px;
           height: 20px;
-          background-image: url('./assets/calendar.svg');
+          background-image: url('../assets/calendar.svg');
           background-size: contain;
           background-repeat: no-repeat;
           background-position: center;

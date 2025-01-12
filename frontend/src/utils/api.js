@@ -1,11 +1,35 @@
 import axios from 'axios';
 import moment from 'moment';
 
-const API_BASE_URL = 'http://localhost:8080'; 
+const API_BASE_URL = 'http://localhost:8080';
+
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token && config.url !== '/auth/login' && config.url !== '/auth/register') {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 errors globally
+api.interceptors.response.use(
+  (response) => response, // Pass through successful responses
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error); // Forward the error for further handling
+  }
+);
 
 export const fetchTasks = async (showDone=NaN, deadlineProximity=NaN) => {
   try {
-    let request = `${API_BASE_URL}/tasks/`;
+    let request = `/tasks/`;
 
     let deadlineProximityRequest;
     let showDoneRequest;
@@ -27,7 +51,7 @@ export const fetchTasks = async (showDone=NaN, deadlineProximity=NaN) => {
       request = request + '?' + showDoneRequest + '&' + deadlineProximityRequest
     }
 
-    const response = await axios.get(request);
+    const response = await api.get(request);
     return response.data;
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -37,8 +61,7 @@ export const fetchTasks = async (showDone=NaN, deadlineProximity=NaN) => {
 
 export const createTask = async (taskData) => {
   try {
-    console.log("createTask", `${API_BASE_URL}/tasks/create`, taskData);
-    const response = await axios.post(`${API_BASE_URL}/tasks/create`, taskData);
+    const response = await api.post(`/tasks/create`, taskData);
     return response.data;
   } catch (error) {
     console.error('Error creating task:', error);
@@ -48,8 +71,7 @@ export const createTask = async (taskData) => {
 
 export const updateTask = async (id, taskData) => {
   try {
-    console.log("updateTask", `${API_BASE_URL}/tasks/update/${id}`, taskData);
-    const response = await axios.post(`${API_BASE_URL}/tasks/update/${id}`, taskData);
+    const response = await api.post(`/tasks/update/${id}`, taskData);
     return response.data;
   } catch (error) {
     console.error('Error updating task:', error);
@@ -59,7 +81,7 @@ export const updateTask = async (id, taskData) => {
 
 export const deleteTask = async (id) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/tasks/delete/${id}`);
+    const response = await api.get(`/tasks/delete/${id}`);
     return response.data;
   } catch (error) {
     console.error('Error deleting task:', error);

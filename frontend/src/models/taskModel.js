@@ -5,5 +5,6 @@ export const emptyTask = {
     done: 'todo',
     planned: false,
     deadline: new Date().toUTCString(),
-    createdAt: new Date().toUTCString()
+    createdAt: new Date().toUTCString(),
+    userID: 0,
 };

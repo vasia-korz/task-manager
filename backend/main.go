@@ -21,12 +21,12 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},                   // Allow frontend origin
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // HTTP methods
-		AllowHeaders:     []string{"Authorization", "Content-Type"},           // Allowed headers
-		ExposeHeaders:    []string{"Authorization"},                           // Expose any custom headers
-		AllowCredentials: true,                                                // Allow cookies if needed
-		MaxAge:           12 * time.Hour,                                      // Cache preflight response
+		AllowOrigins:     []string{"https://symphonious-marigold-3e8221.netlify.app"}, // Allow frontend origin
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},         // HTTP methods
+		AllowHeaders:     []string{"Authorization", "Content-Type"},                   // Allowed headers
+		ExposeHeaders:    []string{"Authorization"},                                   // Expose any custom headers
+		AllowCredentials: true,                                                        // Allow cookies if needed
+		MaxAge:           12 * time.Hour,                                              // Cache preflight response
 	}))
 
 	authRouter := r.Group("/auth")

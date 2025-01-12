@@ -1,3 +1,15 @@
-# .gitignore
-/data/sqlite.db
-/task-manager.exe
+# Ignore SQLite database files
+*.db
+
+# Ignore Go build outputs
+*.exe
+*.out
+task-manager
+
+# Ignore build and temp files
+*.log
+*.tmp
+
+# Ignore editor configuration
+.vscode/
+.idea/

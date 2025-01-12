@@ -78,7 +78,7 @@ function EditTaskModal ({ isOpen, onRequestClose, selectedTask = emptyTask, onSu
                 </div>
             </div>
             <button type="submit">Save</button>
-            <img onClick={onRequestClose} className="close-btn" src={closeImg} />
+            <img onClick={onRequestClose} className="close-btn" src={closeImg} alt="close" />
             </form>
         )}
       </div>

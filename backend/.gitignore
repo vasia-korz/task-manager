@@ -1,2 +1,3 @@
 # .gitignore
-# /data/sqlite.db
+/data/sqlite.db
+/task-manager.exe

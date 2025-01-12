@@ -1,10 +1,8 @@
 import axios from 'axios';
 import moment from 'moment';
 
-const API_BASE_URL = 'http://localhost:8080';
-
 export const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: process.env.REACT_APP_API_URL,
 });
 
 api.interceptors.request.use((config) => {
@@ -15,15 +13,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 errors globally
 api.interceptors.response.use(
-  (response) => response, // Pass through successful responses
+  (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+      const errorMessage = error.response.data?.error;
+      console.log("errorMessage", errorMessage)
+      if (errorMessage === 'Invalid token') {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
-    return Promise.reject(error); // Forward the error for further handling
+    return Promise.reject(error);
   }
 );
 
